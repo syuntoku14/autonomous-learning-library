@@ -39,6 +39,7 @@ class TestExperienceReplayBuffer(unittest.TestCase):
         expected_weights = np.ones((10, 3))
         actual_samples = []
         actual_weights = []
+        # single state, action, reward
         for i in range(10):
             state = State(states[i].unsqueeze(0), torch.tensor([1]))
             next_state = State(states[i + 1].unsqueeze(0), torch.tensor([1]))
@@ -46,10 +47,18 @@ class TestExperienceReplayBuffer(unittest.TestCase):
             sample = self.replay_buffer.sample(3)
             actual_samples.append(sample[0].features)
             actual_weights.append(sample[-1])
+        
+        # test sampling
         tt.assert_equal(
             torch.cat(actual_samples).view(expected_samples.shape), expected_samples
         )
         np.testing.assert_array_equal(expected_weights, np.vstack(actual_weights))
+
+        # store multiple states, actions, rewards
+        states = State(states)
+        self.replay_buffer.store(states[:-1], actions, rewards, states[1:])
+        sampled_states, _, _, next_sampled_states, _ = self.replay_buffer.sample(15)
+        tt.assert_equal(sampled_states.features+1, next_sampled_states.features)
 
 
 class TestPrioritizedReplayBuffer(unittest.TestCase):
@@ -60,6 +69,7 @@ class TestPrioritizedReplayBuffer(unittest.TestCase):
         self.replay_buffer = PrioritizedReplayBuffer(5, 0.6)
 
     def test_run(self):
+        # (batch_size x shape): batch_size == 20, shape == 1
         states = State(torch.arange(0, 20))
         actions = torch.arange(0, 20).view((-1, 1))
         rewards = torch.arange(0, 20)
@@ -87,6 +97,8 @@ class TestPrioritizedReplayBuffer(unittest.TestCase):
         ]
         actual_samples = []
         actual_weights = []
+
+        # single state, action, reward
         for i in range(10):
             self.replay_buffer.store(states[i], actions[i], rewards[i], states[i + 1])
             if i > 2:
@@ -96,11 +108,17 @@ class TestPrioritizedReplayBuffer(unittest.TestCase):
                 actual_samples.append(sample_states)
                 actual_weights.append(sample[-1])
 
+        # test sampling
         actual_samples = State(torch.cat(actual_samples).view((-1, 3)))
         self.assert_states_equal(actual_samples, expected_samples)
         np.testing.assert_array_almost_equal(
             expected_weights, np.vstack(actual_weights), decimal=3
         )
+
+        # store multiple states, actions, rewards
+        self.replay_buffer.store(states[:-1], actions, rewards, states[1:])
+        sampled_states, _, _, next_sampled_states, _ = self.replay_buffer.sample(15)
+        tt.assert_equal(sampled_states.features+1, next_sampled_states.features)
 
     def assert_states_equal(self, actual, expected):
         tt.assert_almost_equal(actual.raw, expected.raw)

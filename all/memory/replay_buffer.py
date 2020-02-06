@@ -7,7 +7,7 @@ from .segment_tree import SumSegmentTree, MinSegmentTree
 
 class ReplayBuffer(ABC):
     @abstractmethod
-    def store(self, state, action, reward, next_state):
+    def store(self, states, actions, rewards, next_states):
         '''Store the transition in the buffer'''
 
     @abstractmethod
@@ -28,9 +28,15 @@ class ExperienceReplayBuffer(ReplayBuffer):
         self.pos = 0
         self.device = device
 
-    def store(self, state, action, reward, next_state):
-        if state is not None and not state.done:
-            self._add((state, action, reward, next_state))
+    def store(self, states, actions, rewards, next_states):
+        if states is None or actions is None:
+            return
+        if len(states) == 1:
+            actions = actions.reshape(-1)
+            rewards = torch.FloatTensor([rewards])
+        for state, action, reward, next_state in zip(states, actions, rewards, next_states):
+            if state is not None and not state.done:
+                self._add((state, action, reward, next_state))
 
     def sample(self, batch_size):
         keys = np.random.choice(len(self.buffer), batch_size, replace=True)
@@ -48,10 +54,10 @@ class ExperienceReplayBuffer(ReplayBuffer):
         self.pos = (self.pos + 1) % self.capacity
 
     def _reshape(self, minibatch, weights):
-        states = State.from_list([sample[0] for sample in minibatch])
-        actions = torch.cat([sample[1] for sample in minibatch])
+        states = State.from_list([sample[0] for sample in minibatch]).to(self.device)
+        actions = torch.tensor([sample[1] for sample in minibatch], device=self.device)
         rewards = torch.tensor([sample[2] for sample in minibatch], device=self.device).float()
-        next_states = State.from_list([sample[3] for sample in minibatch])
+        next_states = State.from_list([sample[3] for sample in minibatch]).to(self.device)
         return (states, actions, rewards, next_states, weights)
 
     def __len__(self):
@@ -85,13 +91,19 @@ class PrioritizedReplayBuffer(ExperienceReplayBuffer, Schedulable):
         self._epsilon = epsilon
         self._cache = None
 
-    def store(self, state, action, reward, next_state):
-        if state is None or state.done:
+    def store(self, states, actions, rewards, next_states):
+        if states is None or actions is None:
             return
-        idx = self.pos
-        super()._add((state, action, reward, next_state))
-        self._it_sum[idx] = self._max_priority ** self._alpha
-        self._it_min[idx] = self._max_priority ** self._alpha
+        if len(states) == 1:
+            actions = actions.reshape(-1)
+            rewards = torch.FloatTensor([rewards])
+        for state, action, reward, next_state in zip(states, actions, rewards, next_states):
+            if state is None or state.done:
+                continue
+            idx = self.pos
+            super()._add((state, action, reward, next_state))
+            self._it_sum[idx] = self._max_priority ** self._alpha
+            self._it_min[idx] = self._max_priority ** self._alpha
 
     def sample(self, batch_size):
         beta = self._beta
@@ -151,35 +163,50 @@ class NStepReplayBuffer(ReplayBuffer):
         self.steps = steps
         self.discount_factor = discount_factor
         self.buffer = buffer
-        self._states = []
-        self._actions = []
-        self._rewards = []
-        self._reward = 0.
+        self._statess = None
+        self._actionss = None
+        self._rewardss = None
+        self._rewards = None
 
-    def store(self, state, action, reward, next_state):
-        if state is None or state.done:
+    def store(self, states, actions, rewards, next_states):
+        if states is None or actions is None:
             return
 
-        self._states.append(state)
-        self._actions.append(action)
-        self._rewards.append(reward)
-        self._reward += (self.discount_factor ** (len(self._states) - 1)) * reward
+        if len(states) == 1:
+            actions = actions.reshape(-1)
+            rewards = torch.FloatTensor([rewards])
 
-        if len(self._states) == self.steps:
-            self._store_next(next_state)
+        # initialize by number of envs
+        if self._statess is None:
+            self._statess = [[] for _ in range(len(states))]
+            self._actionss = [[] for _ in range(len(states))]
+            self._rewardss = [[] for _ in range(len(states))]
+            self._rewards = [0. for _ in range(len(states))]
 
-        if not next_state.mask[0]:
-            while self._states:
-                self._store_next(next_state)
-            self._reward = 0.
+        for env_id, (state, action, reward, next_state) in enumerate(zip(states, actions, rewards, next_states)):
+            if state is None or state.done:
+                continue
+            self._statess[env_id].append(state)
+            self._actionss[env_id].append(action)
+            self._rewardss[env_id].append(reward)
+            self._rewards[env_id] += (self.discount_factor ** (len(self._statess[env_id]) - 1)) * rewards[env_id]
 
-    def _store_next(self, next_state):
-        self.buffer.store(self._states[0], self._actions[0], self._reward, next_state)
-        self._reward = self._reward -  self._rewards[0]
-        self._reward *= self.discount_factor ** -1
-        del self._states[0]
-        del self._actions[0]
-        del self._rewards[0]
+            if len(self._statess[env_id]) == self.steps:
+                self._store_next(env_id, next_state)
+
+            if not next_state.mask[0]:
+                while self._statess[env_id]:
+                    self._store_next(env_id, next_state)
+                self._rewards[env_id] = 0.
+
+    def _store_next(self, env_id, next_state):
+        self.buffer.store(self._statess[env_id][0], self._actionss[env_id][0],
+            self._rewards[env_id], next_state)
+        self._rewards[env_id] = self._rewards[env_id] -  self._rewardss[env_id][0]
+        self._rewards[env_id] *= self.discount_factor ** -1
+        del self._statess[env_id][0]
+        del self._actionss[env_id][0]
+        del self._rewardss[env_id][0]
 
     def sample(self, *args, **kwargs):
         return self.buffer.sample(*args, **kwargs)

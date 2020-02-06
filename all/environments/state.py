@@ -67,18 +67,18 @@ class State:
     def __getitem__(self, idx):
         if isinstance(idx, slice):
             return State(
-                self._raw[idx],
+                self.features[idx],
                 self._mask[idx],
                 self._info[idx]
             )
         if isinstance(idx, torch.Tensor):
             return State(
-                self._raw[idx],
+                self.features[idx],
                 self._mask[idx],
                 # can't copy info
             )
         return State(
-            self._raw[idx].unsqueeze(0),
+            self.features[idx].unsqueeze(0),
             self._mask[idx].unsqueeze(0),
             [self._info[idx]]
         )
