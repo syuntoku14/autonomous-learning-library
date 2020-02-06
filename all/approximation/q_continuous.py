@@ -20,5 +20,7 @@ class QContinuous(Approximation):
 
 class QContinuousModule(RLNetwork):
     def forward(self, states, actions):
+        if len(actions.shape) == 1:
+            actions = actions.unsqueeze(1)
         x = torch.cat((states.features.float(), actions), dim=1)
         return self.model(x).squeeze(-1) * states.mask.float()

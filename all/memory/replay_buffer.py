@@ -32,7 +32,7 @@ class ExperienceReplayBuffer(ReplayBuffer):
         if states is None or actions is None:
             return
         if len(states) == 1:
-            actions = actions.reshape(-1)
+            actions = actions.reshape((1, -1))
             rewards = torch.FloatTensor([rewards])
         for state, action, reward, next_state in zip(states, actions, rewards, next_states):
             if state is not None and not state.done:
@@ -55,7 +55,7 @@ class ExperienceReplayBuffer(ReplayBuffer):
 
     def _reshape(self, minibatch, weights):
         states = State.from_list([sample[0] for sample in minibatch]).to(self.device)
-        actions = torch.tensor([sample[1] for sample in minibatch], device=self.device)
+        actions = torch.cat([sample[1] for sample in minibatch]).to(self.device)
         rewards = torch.tensor([sample[2] for sample in minibatch], device=self.device).float()
         next_states = State.from_list([sample[3] for sample in minibatch]).to(self.device)
         return (states, actions, rewards, next_states, weights)
@@ -95,7 +95,7 @@ class PrioritizedReplayBuffer(ExperienceReplayBuffer, Schedulable):
         if states is None or actions is None:
             return
         if len(states) == 1:
-            actions = actions.reshape(-1)
+            actions = actions.reshape((1, -1))
             rewards = torch.FloatTensor([rewards])
         for state, action, reward, next_state in zip(states, actions, rewards, next_states):
             if state is None or state.done:
@@ -173,7 +173,7 @@ class NStepReplayBuffer(ReplayBuffer):
             return
 
         if len(states) == 1:
-            actions = actions.reshape(-1)
+            actions = actions.reshape((1, -1))
             rewards = torch.FloatTensor([rewards])
 
         # initialize by number of envs
