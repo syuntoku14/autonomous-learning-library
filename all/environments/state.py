@@ -17,9 +17,9 @@ class State:
         self._info = info or [None] * len(raw)
 
     @classmethod
-    def from_list(cls, states):
-        raw = torch.cat([state.features for state in states])
-        done = torch.cat([state.mask for state in states])
+    def from_list(cls, states, device="cpu"):
+        raw = torch.cat([state.features for state in states]).to(device)
+        done = torch.cat([state.mask for state in states]).to(device)
         info = sum([state.info for state in states], [])
         return cls(raw, done, info)
 
@@ -79,6 +79,12 @@ class State:
 
     def __len__(self):
         return len(self._raw)
+
+    def to(self, device):
+        raw = self._raw.to(device)
+        mask = self._mask.to(device)
+        info = self.info
+        return cls(raw, mask, info)
 
 DONE = torch.tensor(
     [0],

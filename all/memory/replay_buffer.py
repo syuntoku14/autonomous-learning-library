@@ -7,8 +7,11 @@ from .segment_tree import SumSegmentTree, MinSegmentTree
 
 class ReplayBuffer(ABC):
     @abstractmethod
-    def store(self, state, action, reward, next_state):
-        '''Store the transition in the buffer'''
+    def store(self, states, actions, rewards, next_states):
+        '''
+        Store the transition in the buffer
+        The size of args: [num_envs, shape]
+        '''
 
     @abstractmethod
     def sample(self, batch_size):
@@ -28,9 +31,12 @@ class ExperienceReplayBuffer(ReplayBuffer):
         self.pos = 0
         self.device = device
 
-    def store(self, state, action, reward, next_state):
-        if state is not None and not state.done:
-            self._add((state, action, reward, next_state))
+    def store(self, states, actions, rewards, next_states):
+        if states is None or actions is None:
+            return
+        for state, action, reward, next_state in zip(states, actions, rewards, next_states):
+            if state is not None and not state.done:
+                self._add((state, action, reward, next_state))
 
     def sample(self, batch_size):
         keys = np.random.choice(len(self.buffer), batch_size, replace=True)
@@ -48,10 +54,10 @@ class ExperienceReplayBuffer(ReplayBuffer):
         self.pos = (self.pos + 1) % self.capacity
 
     def _reshape(self, minibatch, weights):
-        states = State.from_list([sample[0] for sample in minibatch])
-        actions = torch.cat([sample[1] for sample in minibatch])
+        states = State.from_list([sample[0] for sample in minibatch], device=self.device)
+        actions = torch.tensor([sample[1] for sample in minibatch], device=self.device)
         rewards = torch.tensor([sample[2] for sample in minibatch], device=self.device).float()
-        next_states = State.from_list([sample[3] for sample in minibatch])
+        next_states = State.from_list([sample[3] for sample in minibatch], device=self.device)
         return (states, actions, rewards, next_states, weights)
 
     def __len__(self):
@@ -85,13 +91,16 @@ class PrioritizedReplayBuffer(ExperienceReplayBuffer, Schedulable):
         self._epsilon = epsilon
         self._cache = None
 
-    def store(self, state, action, reward, next_state):
-        if state is None or state.done:
+    def store(self, states, actions, rewards, next_states):
+        if states is None or actions is None:
             return
-        idx = self.pos
-        super()._add((state, action, reward, next_state))
-        self._it_sum[idx] = self._max_priority ** self._alpha
-        self._it_min[idx] = self._max_priority ** self._alpha
+        for state, action, reward, next_state in zip(states, actions, rewards, next_states):
+            if state is None or state.done:
+                continue
+            idx = self.pos
+            super()._add((state, action, reward, next_state))
+            self._it_sum[idx] = self._max_priority ** self._alpha
+            self._it_min[idx] = self._max_priority ** self._alpha
 
     def sample(self, batch_size):
         beta = self._beta
@@ -138,6 +147,7 @@ class PrioritizedReplayBuffer(ExperienceReplayBuffer, Schedulable):
             res.append(idx)
         return res
 
+# TODO: support multiprocess NStepReplayBuffer
 class NStepReplayBuffer(ReplayBuffer):
     '''Converts any ReplayBuffer into an NStepReplayBuffer'''
     def __init__(

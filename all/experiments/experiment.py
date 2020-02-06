@@ -2,6 +2,14 @@ import numpy as np
 from all.logging import ExperimentWriter
 from .runner import SingleEnvRunner, ParallelEnvRunner
 
+class BetterExperimentWriter(ExperimentWriter):
+    def add_text(self, name, text, step="frame"):
+        super().add_text(self.env_name + name, text, self._get_step(step))
+
+    def add_histogram(self, name, values, step="frame"):
+        super().add_histogram(self.env_name + name, values, self._get_step(step))
+
+
 class Experiment:
     def __init__(
             self,
@@ -39,4 +47,4 @@ class Experiment:
                 )
 
     def _make_writer(self, agent_name, env_name, write_loss):
-        return ExperimentWriter(agent_name, env_name, write_loss)
+        return BetterExperimentWriter(agent_name, env_name, write_loss)

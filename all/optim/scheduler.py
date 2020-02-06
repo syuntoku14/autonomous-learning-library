@@ -23,7 +23,6 @@ class LinearScheduler:
         self._final_value = final_value
         self._decay_start = decay_start
         self._decay_end = decay_end
-        self._i = -1
         self._name = name
         self._writer = writer
 
@@ -33,10 +32,10 @@ class LinearScheduler:
         return result
 
     def _get_value(self):
-        self._i += 1
-        if self._i < self._decay_start:
+        frames = self._writer._get_step("frame")
+        if frames < self._decay_start:
             return self._initial_value
-        if self._i >= self._decay_end:
+        if frames >= self._decay_end:
             return self._final_value
-        alpha = (self._i - self._decay_start) / (self._decay_end - self._decay_start)
+        alpha = (frames - self._decay_start) / (self._decay_end - self._decay_start)
         return alpha * self._final_value + (1 - alpha) * self._initial_value
