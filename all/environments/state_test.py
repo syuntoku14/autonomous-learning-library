@@ -60,3 +60,23 @@ class StateTest(unittest.TestCase):
     def test_len(self):
         state = State(torch.randn(3, 4))
         self.assertEqual(len(state), 3)
+
+    def test_to(self):
+        CPU = torch.device("cpu")
+        if torch.cuda.is_available():
+            CUDA = torch.device("cuda")
+        else:
+            print(
+                "WARNING: CUDA is not available!",
+                "Running presets in cpu mode.",
+                "Enable CUDA for full test coverage!",
+            )
+            CUDA = torch.device("cpu")
+
+        state_cpu = State(torch.randn(3, 4)).to("cpu")
+        self.assertEqual(state_cpu._raw.device, CPU)
+        self.assertEqual(state_cpu._mask.device, CPU)
+        if torch.cuda.is_available():
+            state_cuda = State(torch.randn(3, 4)).to("cuda")
+            self.assertEqual(state_cuda._raw.device, CUDA)
+            self.assertEqual(state_cuda._mask.device, CUDA)
