@@ -64,7 +64,7 @@ class StateTest(unittest.TestCase):
     def test_to(self):
         CPU = torch.device("cpu")
         if torch.cuda.is_available():
-            CUDA = torch.device("cuda")
+            CUDA = torch.device("cuda:0")
         else:
             print(
                 "WARNING: CUDA is not available!",
@@ -77,6 +77,6 @@ class StateTest(unittest.TestCase):
         self.assertEqual(state_cpu._raw.device, CPU)
         self.assertEqual(state_cpu._mask.device, CPU)
         if torch.cuda.is_available():
-            state_cuda = State(torch.randn(3, 4)).to("cuda")
+            state_cuda = State(torch.randn(3, 4)).to("cuda:0")
             self.assertEqual(state_cuda._raw.device, CUDA)
             self.assertEqual(state_cuda._mask.device, CUDA)
