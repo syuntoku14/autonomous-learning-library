@@ -36,7 +36,7 @@ class ExperienceReplayBuffer(ReplayBuffer):
             rewards = torch.FloatTensor([rewards])
         for state, action, reward, next_state in zip(states, actions, rewards, next_states):
             if state is not None and not state.done:
-                self._add((state, action, reward, next_state))
+                self._add((state.to("cpu"), action.to("cpu"), reward.to("cpu"), next_state.to("cpu")))
 
     def sample(self, batch_size):
         keys = np.random.choice(len(self.buffer), batch_size, replace=True)
@@ -101,7 +101,7 @@ class PrioritizedReplayBuffer(ExperienceReplayBuffer, Schedulable):
             if state is None or state.done:
                 continue
             idx = self.pos
-            super()._add((state, action, reward, next_state))
+            super()._add((state.to("cpu"), action.to("cpu"), reward.to("cpu"), next_state.to("cpu")))
             self._it_sum[idx] = self._max_priority ** self._alpha
             self._it_min[idx] = self._max_priority ** self._alpha
 
