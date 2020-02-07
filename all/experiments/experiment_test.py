@@ -34,6 +34,12 @@ class MockWriter(Writer):
 
     def add_summary(self, name, mean, std, step="frame"):
         pass
+    
+    def add_text(self, name, text, step="frame"):
+        pass
+
+    def add_histogram(self, name, values, step="frame"):
+        pass
 
     def _get_step(self, _type):
         if _type == "frame":

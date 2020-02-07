@@ -29,6 +29,13 @@ class Writer(ABC):
     def add_summary(self, name, mean, std, step="frame"):
         pass
 
+    @abstractmethod
+    def add_text(self, name, text, step="frame"):
+        pass
+
+    @abstractmethod
+    def add_histogram(self, name, values, step="frame"):
+        pass
 
 class DummyWriter(Writer):
     def add_loss(self, name, value, step="frame"):
@@ -46,6 +53,11 @@ class DummyWriter(Writer):
     def add_summary(self, name, mean, std, step="frame"):
         pass
 
+    def add_text(self, name, text, step="frame"):
+        pass
+
+    def add_histogram(self, name, values, step="frame"):
+        pass
 
 class ExperimentWriter(SummaryWriter, Writer):
     def __init__(self, agent_name, env_name, loss=True):
@@ -84,6 +96,12 @@ class ExperimentWriter(SummaryWriter, Writer):
 
         with open(os.path.join(self.log_dir, self.env_name, name + ".csv"), "a") as csvfile:
             csv.writer(csvfile).writerow([self._get_step(step), mean, std])
+
+    def add_text(self, name, text, step="frame"):
+        super().add_text(self.env_name + name, text, self._get_step(step))
+
+    def add_histogram(self, name, values, step="frame"):
+        super().add_histogram(self.env_name + name, values, self._get_step(step))
 
     def _get_step(self, _type):
         if _type == "frame":

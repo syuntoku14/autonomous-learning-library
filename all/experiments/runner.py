@@ -24,6 +24,7 @@ class EnvRunner(ABC):
         self._quiet = quiet
         self._best_returns = -np.inf
         self._returns100 = []
+        self._action_history = []
         self.run()
 
     @abstractmethod
@@ -48,6 +49,8 @@ class EnvRunner(ABC):
             std = np.std(self._returns100)
             self._writer.add_summary('returns100', mean, std, step="frame")
             self._returns100 = []
+            self._writer.add_histogram('actions', self._action_history, step="frame")
+            self._action_history = []
         self._writer.add_evaluation('returns/episode', returns, step="episode")
         self._writer.add_evaluation('returns/frame', returns, step="frame")
         self._writer.add_evaluation("returns/max", self._best_returns, step="frame")
@@ -80,6 +83,7 @@ class SingleEnvRunner(EnvRunner):
             if self._render:
                 env.render()
             env.step(action)
+            self._action_history.append(action.cpu().item())
             returns += env.reward
             action = agent.act(env.state, env.reward)
 
@@ -117,6 +121,7 @@ class ParallelEnvRunner(EnvRunner):
             device=self._env[0].device
         )
         actions = self._agent.act(states, rewards)
+        self._action_history += actions.detach().cpu().tolist()
 
         for i, env in enumerate(self._env):
             self._step_env(i, env, actions[i])
