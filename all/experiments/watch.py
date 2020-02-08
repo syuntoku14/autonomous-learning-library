@@ -4,15 +4,19 @@ import torch
 import gym
 from all.agents import Agent
 
-def watch(agent, env, fps=60):
+def watch(agent, env, fps=60, num_iters=1):
     action = None
     returns = 0
     # have to call this before initial reset for pybullet envs
     env.render(mode="human")
+    num_dones = 0
     while True:
         time.sleep(1 / fps)
         if env.done:
             print('returns:', returns)
+            num_dones += 1
+            if num_iters < num_dones: 
+                break
             env.reset()
             returns = 0
         else:
@@ -20,6 +24,7 @@ def watch(agent, env, fps=60):
         env.render()
         action = agent.act(env.state, env.reward)
         returns += env.reward
+    env.close()
 
 def load_and_watch(dir, env, fps=60):
     watch(GreedyAgent.load(dir, env), env, fps=fps)
@@ -79,11 +84,11 @@ class GreedyAgent(Agent):
         q = None
         for filename in os.listdir(dirname):
             if filename == 'feature.pt':
-                feature = torch.load(os.path.join(dirname, filename)).to(env.device)
+                feature = torch.load(os.path.join(dirname, filename), map_location=env.device).to(env.device)
             if filename == 'policy.pt':
-                policy = torch.load(os.path.join(dirname, filename)).to(env.device)
+                policy = torch.load(os.path.join(dirname, filename), map_location=env.device).to(env.device)
             if filename in ('q.pt', 'q_dist.pt'):
-                q = torch.load(os.path.join(dirname, filename)).to(env.device)
+                q = torch.load(os.path.join(dirname, filename), map_location=env.device).to(env.device)
 
         agent = GreedyAgent(
             env.action_space,

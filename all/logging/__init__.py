@@ -65,11 +65,11 @@ class ExperimentWriter(SummaryWriter, Writer):
         current_time = str(datetime.now())
         os.makedirs(
             os.path.join(
-                "runs", ("%s %s %s" % (agent_name, COMMIT_HASH, current_time)), env_name
+                "runs", ("%s_%s_%s" % (agent_name, COMMIT_HASH, current_time)), env_name
             )
         )
         self.log_dir = os.path.join(
-            "runs", ("%s %s %s" % (agent_name, COMMIT_HASH, current_time))
+            "runs", ("%s_%s_%s" % (agent_name, COMMIT_HASH, current_time))
         )
         self._frames = 0
         self._episodes = 1
