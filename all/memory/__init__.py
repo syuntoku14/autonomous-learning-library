@@ -2,6 +2,7 @@ from .replay_buffer import (
     ReplayBuffer,
     ExperienceReplayBuffer,
     PrioritizedReplayBuffer,
+    PrioritizedReplayBufferWithExpert,
     NStepReplayBuffer,
 )
 from .advantage import NStepAdvantageBuffer
@@ -11,6 +12,7 @@ __all__ = [
     "ReplayBuffer",
     "ExperienceReplayBuffer",
     "PrioritizedReplayBuffer",
+    "PrioritizedReplayBufferWithExpert",
     "NStepAdvantageBuffer",
     "NStepReplayBuffer",
     "GeneralizedAdvantageBuffer",

@@ -3,6 +3,7 @@ from .a2c import A2C
 from .c51 import C51
 from .ddpg import DDPG
 from .ddqn import DDQN
+from .ddqfd import DDQfD
 from .dqn import DQN
 from .ppo import PPO
 from .rainbow import Rainbow
@@ -18,6 +19,7 @@ __all__ = [
     "C51",
     "DDPG",
     "DDQN",
+    "DDQfD",
     "DQN",
     "PPO",
     "Rainbow",
