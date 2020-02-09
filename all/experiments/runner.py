@@ -51,10 +51,10 @@ class EnvRunner(ABC):
             self._returns100 = []
             self._writer.add_histogram('actions', self._action_history, step="frame")
             self._action_history = []
-        self._writer.add_evaluation('returns/episode', returns, step="episode")
-        self._writer.add_evaluation('returns/frame', returns, step="frame")
-        self._writer.add_evaluation("returns/max", self._best_returns, step="frame")
-        self._writer.add_scalar('fps', fps, step="frame")
+            self._writer.add_evaluation('returns/episode', returns, step="episode")
+            self._writer.add_evaluation('returns/frame', returns, step="frame")
+            self._writer.add_evaluation("returns/max", self._best_returns, step="frame")
+            self._writer.add_scalar('fps', fps, step="frame")
 
 class SingleEnvRunner(EnvRunner):
     def run(self):
