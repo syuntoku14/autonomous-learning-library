@@ -49,7 +49,7 @@ class EnvRunner(ABC):
             std = np.std(self._returns100)
             self._writer.add_summary('returns100', mean, std, step="frame")
             self._returns100 = []
-            self._writer.add_histogram('actions', self._action_history, step="frame")
+            self._writer.add_histogram('actions', torch.tensor(self._action_history), step="frame")
             self._action_history = []
             self._writer.add_evaluation('returns/episode', returns, step="episode")
             self._writer.add_evaluation('returns/frame', returns, step="frame")

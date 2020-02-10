@@ -3,7 +3,7 @@ import os
 import subprocess
 from abc import ABC, abstractmethod
 from datetime import datetime
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Writer(ABC):
