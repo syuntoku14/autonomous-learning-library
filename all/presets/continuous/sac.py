@@ -109,9 +109,9 @@ def sac(
             replay_buffer_size,
             device=device
         )
-        replay_buffer = HERBuffer(replay_buffer)
+        # replay_buffer = HERBuffer(replay_buffer)
 
-        return TimeFeature(SAC(
+        return SAC(
             policy,
             q_1,
             q_2,
@@ -125,5 +125,5 @@ def sac(
             update_frequency=update_frequency,
             minibatch_size=minibatch_size,
             writer=writer
-        ))
+        )
     return _sac
