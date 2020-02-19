@@ -5,7 +5,7 @@ from all.approximation import QContinuous, PolyakTarget, VNetwork
 from all.bodies import TimeFeature
 from all.logging import DummyWriter
 from all.policies.soft_deterministic import SoftDeterministicPolicy
-from all.memory import ExperienceReplayBuffer
+from all.memory import ExperienceReplayBuffer, HERBuffer
 from .models import fc_q, fc_v, fc_soft_policy
 
 
@@ -109,6 +109,7 @@ def sac(
             replay_buffer_size,
             device=device
         )
+        replay_buffer = HERBuffer(replay_buffer)
 
         return TimeFeature(SAC(
             policy,

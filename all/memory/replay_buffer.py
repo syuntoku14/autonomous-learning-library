@@ -189,3 +189,65 @@ class NStepReplayBuffer(ReplayBuffer):
 
     def __len__(self):
         return len(self.buffer)
+
+
+class HERBuffer(ReplayBuffer):
+    '''Converts any ReplayBuffer into an NStepReplayBuffer'''
+    def __init__(
+            self,
+            buffer,
+    ):
+        self.buffer = buffer
+        self._states = []
+        self._actions = []
+        self._rewards = []
+
+    def store(self, state, action, reward, next_state):
+        if state is None or state.done:
+            return
+
+        self._states.append(state)
+        self._actions.append(action)
+        self._rewards.append(reward)
+
+        # stop always is not allowed
+        last_pos2goal = next_state.features.squeeze()[-2:]
+        if np.random.rand() < her_prob or next_state.mask[0] == 0:
+            next_state.mask[0] = 0
+
+            # replace goal with the final state
+            print("HER replace the goal: ")
+            self._rewardss[-1] = 1  # set the final state as goal
+
+            # replace all goal
+            for i in range(len(self._statess)):
+                self._statess[i].features[0][-2:] -= last_pos2goal
+                print("norm2goal: ", np.linalg.norm(self._statess[i].features[0][-2:]))
+            next_state.features[0][-2:] -= last_pos2goal
+            print("norm2goal: ", np.linalg.norm(next_state.features[0][-2:]))
+            print("rewards: ", self._rewardss)
+
+            while len(self._statess) > 1:
+                self._store_next()
+
+            self.buffer.store(self._statess[0], self._actionss[0],
+                            self._rewardss[0], next_state)
+            del self._statess[0]
+            del self._actionss[0]
+            del self._rewardss[0]
+
+    def _store_next(self, next_state):
+        self.buffer.store(self._states[0], self._actions[0], self._rewards[0], self._states[1])
+        del self._states[0]
+        del self._actions[0]
+        del self._rewards[0]
+
+    def sample(self, *args, **kwargs):
+        return self.buffer.sample(*args, **kwargs)
+
+    def update_priorities(self, *args, **kwargs):
+        return self.buffer.update_priorities(*args, **kwargs)
+
+    def __len__(self):
+        return len(self.buffer)
+

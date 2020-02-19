@@ -3,6 +3,7 @@ from .replay_buffer import (
     ExperienceReplayBuffer,
     PrioritizedReplayBuffer,
     NStepReplayBuffer,
+    HERBuffer
 )
 from .advantage import NStepAdvantageBuffer
 from .generalized_advantage import GeneralizedAdvantageBuffer
