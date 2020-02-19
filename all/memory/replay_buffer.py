@@ -4,6 +4,7 @@ import torch
 from all.environments import State
 from all.optim import Schedulable
 from .segment_tree import SumSegmentTree, MinSegmentTree
+from copy import deepcopy
 
 class ReplayBuffer(ABC):
     @abstractmethod
@@ -210,28 +211,31 @@ class HERBuffer(ReplayBuffer):
         self._actions.append(action)
         self._rewards.append(reward)
 
-        # stop always is not allowed
         last_pos2goal = next_state.features.squeeze()[-2:]
         if np.random.rand() < her_prob or next_state.mask[0] == 0:
-            next_state.mask[0] = 0
+            _next_state = deepcopy(next_state)
+            _next_state.mask[0] = 0
 
-            # replace goal with the final state
+            # replace goal with the new state
             print("HER replace the goal: ")
-            self._rewards[-1] = 1  # set the final state as goal
 
             # replace all goal
             for i in range(len(self._states)):
                 self._states[i].features[0][-2:] -= last_pos2goal
-                print("norm2goal: ", np.linalg.norm(self._states[i].features[0][-2:]))
-            next_state.features[0][-2:] -= last_pos2goal
-            print("norm2goal: ", np.linalg.norm(next_state.features[0][-2:]))
+                norm = np.linalg.norm(self._states[i].features[0][-2:])
+                print("norm2goal: ", norm)
+                if norm < 1.0:
+                    self._rewards[i] = 1.0  # set the goal rewards
+
+            _next_state.features[0][-2:] -= last_pos2goal
+            print("norm2goal: ", np.linalg.norm(_next_state.features[0][-2:]))
             print("rewards: ", self._rewards)
 
             while len(self._states) > 1:
                 self._store_next()
 
             self.buffer.store(self._states[0], self._actions[0],
-                            self._rewards[0], next_state)
+                            self._rewards[0], _next_state)
             del self._states[0]
             del self._actions[0]
             del self._rewards[0]
