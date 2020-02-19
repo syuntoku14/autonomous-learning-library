@@ -203,7 +203,7 @@ class HERBuffer(ReplayBuffer):
         self._actions = []
         self._rewards = []
 
-    def store(self, state, action, reward, next_state, her_prob=0.5):
+    def store(self, state, action, reward, next_state, her_prob=0.03):
         if state is None or state.done:
             return
 
