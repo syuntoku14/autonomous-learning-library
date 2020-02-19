@@ -203,7 +203,7 @@ class HERBuffer(ReplayBuffer):
         self._actions = []
         self._rewards = []
 
-    def store(self, state, action, reward, next_state, her_prob=0.03):
+    def store(self, state, action, reward, next_state, her_prob=0.1):
         if state is None or state.done:
             return
 
@@ -212,24 +212,28 @@ class HERBuffer(ReplayBuffer):
         self._rewards.append(reward)
 
         last_pos2goal = next_state.features.squeeze()[-2:]
-        if np.random.rand() < her_prob or next_state.mask[0] == 0:
+        # doesn't move is not allowed
+        first_norm = np.linalg.norm(self._states[0].features.squeeze()[-2:] - last_pos2goal)
+        her_seed = np.random.rand()
+        if (her_seed < her_prob and first_norm > 3.0) or next_state.mask[0] == 0:
             _next_state = deepcopy(next_state)
             _next_state.mask[0] = 0
 
-            # replace goal with the new state
-            print("HER replace the goal: ")
+            if her_seed < her_prob:
+                # replace goal with the new state
+                print("HER replace the goal: ")
 
-            # replace all goal
-            for i in range(len(self._states)):
-                self._states[i].features[0][-2:] -= last_pos2goal
-                norm = np.linalg.norm(self._states[i].features[0][-2:])
-                print("norm2goal: ", norm)
-                if norm < 1.0:
-                    self._rewards[i] = 1.0  # set the goal rewards
+                # replace all goal
+                for i in range(len(self._states)):
+                    self._states[i].features[0][-2:] -= last_pos2goal
+                    norm = np.linalg.norm(self._states[i].features[0][-2:])
+                    print("norm2goal: ", norm)
+                    if norm < 1.0:
+                        self._rewards[i] = 1.0  # set the goal rewards
 
-            _next_state.features[0][-2:] -= last_pos2goal
-            print("norm2goal: ", np.linalg.norm(_next_state.features[0][-2:]))
-            print("rewards: ", self._rewards)
+                _next_state.features[0][-2:] -= last_pos2goal
+                print("norm2goal: ", np.linalg.norm(_next_state.features[0][-2:]))
+                print("rewards: ", self._rewards)
 
             while len(self._states) > 1:
                 self._store_next()
