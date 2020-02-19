@@ -192,6 +192,7 @@ class NStepReplayBuffer(ReplayBuffer):
         return len(self.buffer)
 
 
+# TODO: HER can't consider rotation, which cause a bug
 class HERBuffer(ReplayBuffer):
     '''Converts any ReplayBuffer into an NStepReplayBuffer'''
     def __init__(
