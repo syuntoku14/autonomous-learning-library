@@ -110,7 +110,7 @@ def sac(
             replay_buffer_size,
             device=device
         )
-        # replay_buffer = HERBuffer(replay_buffer)
+        replay_buffer = HERBuffer(replay_buffer)
 
         return SAC(
             policy,

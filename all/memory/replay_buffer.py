@@ -207,47 +207,54 @@ class HERBuffer(ReplayBuffer):
         self._actions = []
         self._rewards = []
 
-    def store(self, state, action, reward, next_state, her_prob=0.1):
+    def store(self, state, action, reward, next_state, her_prob=0.5):
         if state is None or state.done:
             return
+
+        state = deepcopy(state)
+        next_state = deepcopy(next_state)
 
         self._states.append(state)
         self._actions.append(action)
         self._rewards.append(reward)
 
-        # doesn't move is not allowed
-        her_seed = np.random.rand()
-        if (her_seed < her_prob) or next_state.mask[0] == 0:
-            _next_state = deepcopy(next_state)
-            _next_state.mask[0] = 0
-            goal_pos = _next_state.info[0]["robot_position"]
+        if next_state.mask[0] == 0:
+            # doesn't move is not allowed
+            her_seed = np.random.rand()
+            her_norm = 2.0
+            norm2next = np.linalg.norm(next_state.info[0]["robot_position"] - self._states[0].info[0]["robot_position"])
 
             # replace goal with the new state
-            print("HER replace the goal: ")
-
-            # replace all goal
-            for i in range(len(self._states)):
-                rot = self._states[i].info[0]["rot"]
-                trans = self._states[i].info[0]["trans"]
-                local_goal = self.transform_from_matrix(trans, rot, [goal_pos])[0]
-                self._states[i].features[0][-2:] = local_goal
-                norm = np.linalg.norm(self._states[i].features[0][-2:])
-                print("norm2goal: ", norm)
-                if norm < 1.0:
-                    self._rewards[i] = 1.0  # set the goal rewards
-
-            _next_state.features[0][-2:] = np.array([0., 0.])
-            print("norm2goal: ", np.linalg.norm(_next_state.features[0][-2:]))
-            print("rewards: ", self._rewards)
+            if (her_seed < her_prob and norm2next > her_norm):
+                print("HER replace the goal: ")
+                self._replace_goal(next_state)
+                print("norm2goal: ", np.linalg.norm(next_state.features[0][-2:]))
+                print("rewards: ", self._rewards)
 
             while len(self._states) > 1:
                 self._store_next()
 
             self.buffer.store(self._states[0], self._actions[0],
-                            self._rewards[0], _next_state)
+                            self._rewards[0], next_state)
             del self._states[0]
             del self._actions[0]
             del self._rewards[0]
+
+    def _replace_goal(self, next_state):
+        her_goal = next_state.info[0]["robot_position"]
+        for i in range(len(self._states)):
+            rot = self._states[i].info[0]["rot"]
+            trans = self._states[i].info[0]["trans"]
+            local_goal = torch.tensor(self.transform_from_matrix(trans, rot, [her_goal])[0])
+            self._states[i].features[0][-2:] = local_goal
+            norm = np.linalg.norm(self._states[i].features[0][-2:])
+            print("norm2goal: ", norm)
+            if norm < 2.0:
+                if i + 1 < len(self._states):
+                    self._states[i+1].mask[0] = 0
+                self._rewards[i] = 1.0  # set the goal rewards
+
+        next_state.features[0][-2:] = torch.tensor([0., 0.])
 
     def _store_next(self):
         self.buffer.store(self._states[0], self._actions[0], self._rewards[0], self._states[1])

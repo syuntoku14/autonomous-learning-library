@@ -28,8 +28,8 @@ class GymEnvironment(Environment):
 
     def reset(self):
         self._lazy_init()
-        state = self._env.reset()
-        self._state = self._make_state(state, 0)
+        state, info = self._env.reset()
+        self._state = self._make_state(state, 0, info)
         self._reward = 0
         self._done = False
         return self._state
