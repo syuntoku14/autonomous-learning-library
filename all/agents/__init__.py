@@ -7,6 +7,7 @@ from .dqn import DQN
 from .ppo import PPO
 from .rainbow import Rainbow
 from .sac import SAC
+from .gail_sac import GAIL_SAC
 from .vac import VAC
 from .vpg import VPG
 from .vqn import VQN

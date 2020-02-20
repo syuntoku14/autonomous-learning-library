@@ -63,3 +63,12 @@ def fc_actor_critic(env, hidden1=400, hidden2=300):
     )
 
     return features, v, policy
+
+def fc_discriminator(env, hidden1=400, hidden2=300):
+    return nn.Sequential(
+        nn.Linear(env.state_space.shape[0] * 2, hidden1),
+        nn.ReLU(),
+        nn.Linear(hidden1, hidden2),
+        nn.ReLU(),
+        nn.Linear0(hidden2, 1),
+        nn.Sigmoid())

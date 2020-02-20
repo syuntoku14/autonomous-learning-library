@@ -3,6 +3,7 @@ from .q_continuous import QContinuous
 from .q_dist import QDist
 from .q_network import QNetwork
 from .v_network import VNetwork
+from .discriminator import Discriminator
 from .feature_network import FeatureNetwork
 from .target import TargetNetwork, FixedTarget, PolyakTarget, TrivialTarget
 from .checkpointer import Checkpointer, DummyCheckpointer, PeriodicCheckpointer
