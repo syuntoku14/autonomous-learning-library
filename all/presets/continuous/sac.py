@@ -12,6 +12,7 @@ from .models import fc_q, fc_v, fc_soft_policy
 def sac(
         # Common settings
         device="cuda",
+        pretrained_model=None,
         discount_factor=0.98,
         last_frame=2e6,
         # Adam optimizer settings
@@ -92,7 +93,7 @@ def sac(
             name='v',
         )
 
-        policy_model = fc_soft_policy(env).to(device)
+        policy_model = fc_soft_policy(env).to(device) if pretrained_model is None else pretrained_model
         policy_optimizer = Adam(policy_model.parameters(), lr=lr_pi)
         policy = SoftDeterministicPolicy(
             policy_model,

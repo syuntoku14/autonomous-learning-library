@@ -5,6 +5,9 @@ from all.environments import State
 from all.optim import Schedulable
 from .segment_tree import SumSegmentTree, MinSegmentTree
 from copy import deepcopy
+import tf
+import tf.transformations as tft
+
 
 class ReplayBuffer(ABC):
     @abstractmethod
@@ -212,29 +215,30 @@ class HERBuffer(ReplayBuffer):
         self._actions.append(action)
         self._rewards.append(reward)
 
-        last_pos2goal = next_state.features.squeeze()[-2:]
         # doesn't move is not allowed
-        first_norm = np.linalg.norm(self._states[0].features.squeeze()[-2:] - last_pos2goal)
         her_seed = np.random.rand()
-        if (her_seed < her_prob and first_norm > 3.0) or next_state.mask[0] == 0:
+        if (her_seed < her_prob) or next_state.mask[0] == 0:
             _next_state = deepcopy(next_state)
             _next_state.mask[0] = 0
+            goal_pos = _next_state.info[0]["robot_position"]
 
-            if her_seed < her_prob:
-                # replace goal with the new state
-                print("HER replace the goal: ")
+            # replace goal with the new state
+            print("HER replace the goal: ")
 
-                # replace all goal
-                for i in range(len(self._states)):
-                    self._states[i].features[0][-2:] -= last_pos2goal
-                    norm = np.linalg.norm(self._states[i].features[0][-2:])
-                    print("norm2goal: ", norm)
-                    if norm < 1.0:
-                        self._rewards[i] = 1.0  # set the goal rewards
+            # replace all goal
+            for i in range(len(self._states)):
+                rot = self._states[i].info[0]["rot"]
+                trans = self._states[i].info[0]["trans"]
+                local_goal = self.transform_from_matrix(trans, rot, [goal_pos])[0]
+                self._states[i].features[0][-2:] = local_goal
+                norm = np.linalg.norm(self._states[i].features[0][-2:])
+                print("norm2goal: ", norm)
+                if norm < 1.0:
+                    self._rewards[i] = 1.0  # set the goal rewards
 
-                _next_state.features[0][-2:] -= last_pos2goal
-                print("norm2goal: ", np.linalg.norm(_next_state.features[0][-2:]))
-                print("rewards: ", self._rewards)
+            _next_state.features[0][-2:] = np.array([0., 0.])
+            print("norm2goal: ", np.linalg.norm(_next_state.features[0][-2:]))
+            print("rewards: ", self._rewards)
 
             while len(self._states) > 1:
                 self._store_next()
@@ -256,6 +260,15 @@ class HERBuffer(ReplayBuffer):
 
     def update_priorities(self, *args, **kwargs):
         return self.buffer.update_priorities(*args, **kwargs)
+
+    def transform_from_matrix(self, trans, rot, path):
+        mat44 = np.dot(tft.translation_matrix(trans), tft.quaternion_matrix(rot))
+        global_path44 = np.array([tft.translation_matrix(
+            (pose[0], pose[1], 0)) for pose in path])
+        global_path44 = (mat44 @ global_path44.T).T
+        path = np.array([tft.translation_from_matrix(
+            out44)[:2] for out44 in global_path44])
+        return path
 
     def __len__(self):
         return len(self.buffer)
