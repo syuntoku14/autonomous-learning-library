@@ -18,10 +18,9 @@ class Discriminator(Approximation):
             **kwargs
         )
 
-    def expert_reward(self, state, next_states):
-        return -torch.log(self.model(state, next_states)).detach()
+    def expert_reward(self, features, next_features):
+        return -torch.log(self.model(features, next_features)).detach()
 
 class DiscriminatorModule(RLNetwork):
-    def forward(self, states, next_states):
-        x = torch.cat((states.features.float(), next_states.features.float()), dim=1)
-        return self.model(x).squeeze(-1) * states.mask.float()
+    def forward(self, features, next_features):
+        return self.model(features, next_features)

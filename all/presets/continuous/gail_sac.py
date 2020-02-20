@@ -99,6 +99,10 @@ def gail_sac(
         d_optimizer = Adam(discrim_model.parameters(), weight_decay=1e-4, lr=lr_d)
         discriminator = Discriminator(discrim_model, d_optimizer)
 
+        tpim_discrim_model = fc_discriminator(env).to(device)
+        d_optimizer = Adam(discrim_model.parameters(), weight_decay=1e-4, lr=lr_d)
+        discriminator = Discriminator(discrim_model, d_optimizer)
+
         policy_model = fc_soft_policy(env).to(device) if pretrained_model is None else pretrained_model
         policy_optimizer = Adam(policy_model.parameters(), lr=lr_pi)
         policy = SoftDeterministicPolicy(

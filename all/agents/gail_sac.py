@@ -43,7 +43,7 @@ class GAIL_SAC(Agent):
                  discount_factor=0.99,
                  entropy_target=-2.,
                  lr_temperature=1e-4,
-                 minibatch_size=32,
+                 minibatch_size=64,
                  replay_start_size=5000,
                  temperature_initial=0.1,
                  update_frequency=1,
@@ -87,12 +87,12 @@ class GAIL_SAC(Agent):
              _) = self.replay_buffer.sample(self.minibatch_size)
             (ex_states, ex_actions, ex_rewards, ex_next_states,
              _) = self.expert_replay_buffer.sample(self.minibatch_size)
-            rewards = (1 - self.expert_rew_ratio) * _rewards + self.expert_rew_ratio * \
-                self.discriminator.expert_reward(states, next_states)
+            expert_rewards = self.discriminator.expert_reward(states, actions)
+            rewards = (1 - self.expert_rew_ratio) * _rewards + self.expert_rew_ratio * expert_rewards
 
             # gail rewards
-            fake = self.discriminator(states, next_states)
-            real = self.discriminator(ex_states, ex_next_states)
+            fake = self.discriminator(states, actions)
+            real = self.discriminator(ex_states, ex_actions)
             discrim_loss = self.discrim_criterion(fake, torch.ones_like(fake)) + \
                 self.discrim_criterion(real, torch.zeros_like(real))
             self.discriminator.reinforce(discrim_loss)
@@ -127,6 +127,7 @@ class GAIL_SAC(Agent):
             self.writer.add_loss('entropy', -_log_probs.mean())
             self.writer.add_loss('v_mean', v_targets.mean())
             self.writer.add_loss('r_mean', rewards.mean())
+            self.writer.add_scalar('expert_reward', expert_rewards.mean())
             self.writer.add_loss('temperature_grad', temperature_grad)
             self.writer.add_loss('temperature', self.temperature)
 
