@@ -18,17 +18,18 @@ def sac(
         # Adam optimizer settings
         lr_q=1e-3,
         lr_v=1e-3,
-        lr_pi=5e-6,
+        lr_pi=1e-4,
         # Training settings
         minibatch_size=100,
         update_frequency=2,
         polyak_rate=0.005,
         # Replay Buffer settings
         replay_start_size=5000,
+        target_start_size=500,
         replay_buffer_size=1e6,
         # Exploration settings
-        temperature_initial=0.01,
-        lr_temperature=1e-6,
+        temperature_initial=0.1,
+        lr_temperature=1e-5,
         entropy_target_scaling=1.,
 ):
     """

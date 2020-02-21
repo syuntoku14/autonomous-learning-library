@@ -39,6 +39,7 @@ class SAC(Agent):
                  lr_temperature=1e-4,
                  minibatch_size=32,
                  replay_start_size=5000,
+                 target_start_size=500,
                  temperature_initial=0.1,
                  update_frequency=1,
                  writer=DummyWriter()
@@ -56,6 +57,7 @@ class SAC(Agent):
         self.lr_temperature = lr_temperature
         self.minibatch_size = minibatch_size
         self.replay_start_size = replay_start_size
+        self.target_start_size = target_start_size
         self.temperature = temperature_initial
         self.update_frequency = update_frequency
         # private
@@ -89,9 +91,10 @@ class SAC(Agent):
             self.v.reinforce(mse_loss(self.v(states), v_targets))
 
             # update policy
-            _actions2, _log_probs2 = self.policy(states)
-            loss = (-self.q_1(states, _actions2) + self.temperature * _log_probs2).mean()
-            self.policy.reinforce(loss)
+            if self._frames_seen % 2 == 0 and self._frames_seen > self.target_start_size:
+                _actions2, _log_probs2 = self.policy(states)
+                loss = (-self.q_1(states, _actions2) + self.temperature * _log_probs2).mean()
+                self.policy.reinforce(loss)
             self.q_1.zero_grad()
 
             # adjust temperature
