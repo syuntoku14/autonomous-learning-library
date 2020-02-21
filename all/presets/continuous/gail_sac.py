@@ -1,12 +1,12 @@
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from all.agents import SAC, GAIL_SAC
-from all.approximation import QContinuous, PolyakTarget, VNetwork, Discriminator
+from all.approximation import QContinuous, PolyakTarget, VNetwork, Discriminator, TPIM_Encoder
 from all.bodies import TimeFeature
 from all.logging import DummyWriter
 from all.policies.soft_deterministic import SoftDeterministicPolicy
 from all.memory import ExperienceReplayBuffer, HERBuffer
-from .models import fc_q, fc_v, fc_soft_policy, fc_discriminator
+from .models import fc_q, fc_v, fc_soft_policy, fc_discriminator, fc_encoder
 
 
 def gail_sac(
@@ -20,7 +20,8 @@ def gail_sac(
         lr_q=1e-3,
         lr_v=1e-3,
         lr_pi=1e-4,
-        lr_d=1e-4, 
+        lr_e=1e-3,
+        lr_d=1e-4,
         # Training settings
         minibatch_size=32,
         update_frequency=2,
@@ -32,6 +33,7 @@ def gail_sac(
         temperature_initial=0.1,
         lr_temperature=1e-5,
         entropy_target_scaling=1.,
+        dim_s=32
 ):
     """
     SAC continuous control preset.
@@ -53,7 +55,8 @@ def gail_sac(
         entropy_target_scaling (float): The target entropy will be -(entropy_target_scaling * env.action_space.shape[0])
     """
     def _gail_sac(env, writer=DummyWriter()):
-        final_anneal_step = (last_frame - replay_start_size) // update_frequency
+        final_anneal_step = (
+            last_frame - replay_start_size) // update_frequency
 
         q_1_model = fc_q(env).to(device)
         q_1_optimizer = Adam(q_1_model.parameters(), lr=lr_q)
@@ -95,15 +98,29 @@ def gail_sac(
             name='v',
         )
 
-        discrim_model = fc_discriminator(env).to(device)
-        d_optimizer = Adam(discrim_model.parameters(), weight_decay=1e-4, lr=lr_d)
-        discriminator = Discriminator(discrim_model, d_optimizer)
+        # compress the observation
+        encoder_model = fc_encoder(env, dim_s).to(device)
+        encoder_optimizer = Adam(
+            encoder_model.parameters(), lr=lr_e)
+        encoder = TPIM_Encoder(encoder_model, encoder_optimizer)
 
-        tpim_discrim_model = fc_discriminator(env).to(device)
-        d_optimizer = Adam(discrim_model.parameters(), weight_decay=1e-4, lr=lr_d)
-        discriminator = Discriminator(discrim_model, d_optimizer)
+        # policy discriminator takes the compressed vector
+        policy_discriminator_model = fc_discriminator(dim_s).to(device)
+        policy_d_optimizer = Adam(
+            policy_discriminator_model.parameters(), lr=lr_d)
+        policy_discriminator = Discriminator(
+            policy_discriminator_model, policy_d_optimizer)
 
-        policy_model = fc_soft_policy(env).to(device) if pretrained_model is None else pretrained_model
+        # domain discriminator takes the compressed vector
+        domain_discriminator_model = fc_discriminator(dim_s).to(device)
+        domain_d_optimizer = Adam(
+            domain_discriminator_model.parameters(), lr=lr_d)
+        domain_discriminator = Discriminator(
+            domain_discriminator_model, domain_d_optimizer)
+
+        # policy takes the compressed vector
+        policy_model = fc_soft_policy(env).to(
+            device) if pretrained_model is None else pretrained_model
         policy_optimizer = Adam(policy_model.parameters(), lr=lr_pi)
         policy = SoftDeterministicPolicy(
             policy_model,
@@ -127,11 +144,14 @@ def gail_sac(
             q_1,
             q_2,
             v,
-            discriminator,
+            domain_discriminator,
+            policy_discriminator,
+            encoder,
             replay_buffer,
             expert_replay_buffer,
             temperature_initial=temperature_initial,
-            entropy_target=(-env.action_space.shape[0] * entropy_target_scaling),
+            entropy_target=(-env.action_space.shape[0]
+                            * entropy_target_scaling),
             lr_temperature=lr_temperature,
             replay_start_size=replay_start_size,
             discount_factor=discount_factor,

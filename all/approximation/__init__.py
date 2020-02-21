@@ -7,6 +7,7 @@ from .discriminator import Discriminator
 from .feature_network import FeatureNetwork
 from .target import TargetNetwork, FixedTarget, PolyakTarget, TrivialTarget
 from .checkpointer import Checkpointer, DummyCheckpointer, PeriodicCheckpointer
+from .encoder import TPIM_Encoder
 
 
 __all__ = [

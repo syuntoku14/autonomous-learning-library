@@ -3,6 +3,7 @@ from torch.nn.functional import mse_loss
 from all.logging import DummyWriter
 from torch.nn import BCELoss
 from ._agent import Agent
+from pytorch_revgrad.functional import revgrad
 
 
 class GAIL_SAC(Agent):
@@ -36,15 +37,18 @@ class GAIL_SAC(Agent):
                  q_1,
                  q_2,
                  v,
-                 discriminator,
+                 domain_discriminator,
+                 policy_discriminator,
+                 encoder,
                  replay_buffer,
                  expert_replay_buffer,
-                 expert_rew_ratio=0.3,
+                 expert_rew_ratio=0.1,
                  discount_factor=0.99,
                  entropy_target=-2.,
                  lr_temperature=1e-4,
                  minibatch_size=64,
                  replay_start_size=5000,
+                 domain_weight=0.5,
                  temperature_initial=0.1,
                  update_frequency=1,
                  writer=DummyWriter()
@@ -54,7 +58,9 @@ class GAIL_SAC(Agent):
         self.v = v
         self.q_1 = q_1
         self.q_2 = q_2
-        self.discriminator = discriminator
+        self.domain_discriminator = domain_discriminator
+        self.policy_discriminator = policy_discriminator
+        self.encoder = encoder
         self.discrim_criterion = BCELoss()
         self.replay_buffer = replay_buffer
         self.expert_replay_buffer = expert_replay_buffer
@@ -68,6 +74,7 @@ class GAIL_SAC(Agent):
         self.temperature = temperature_initial
         self.update_frequency = update_frequency
         self.expert_rew_ratio = expert_rew_ratio
+        self.domain_weight = domain_weight
         # private
         self._state = None
         self._action = None
@@ -87,15 +94,36 @@ class GAIL_SAC(Agent):
              _) = self.replay_buffer.sample(self.minibatch_size)
             (ex_states, ex_actions, ex_rewards, ex_next_states,
              _) = self.expert_replay_buffer.sample(self.minibatch_size)
-            expert_rewards = self.discriminator.expert_reward(states, actions)
-            rewards = (1 - self.expert_rew_ratio) * _rewards + self.expert_rew_ratio * expert_rewards
+
+            feature = self.encoder(states, actions)
+            ex_feature = self.encoder(ex_states, ex_actions)
+
+            # gail policy disc update
+            policy_fake = self.policy_discriminator(feature)
+            policy_real = self.policy_discriminator(ex_feature)
+            policy_discrim_loss = self.discrim_criterion(policy_fake, torch.ones_like(policy_fake)) + \
+                self.discrim_criterion(
+                    policy_real, torch.zeros_like(policy_real))
+
+            print("policy_fake: {}, policy_real: {}", policy_fake.mean(), policy_real.mean())
+            # gail domain disc update
+            domain_fake = self.domain_discriminator(revgrad(feature))
+            domain_real = self.domain_discriminator(revgrad(ex_feature))
+            domain_discrim_loss = self.discrim_criterion(domain_fake, torch.ones_like(domain_fake)) + \
+                self.discrim_criterion(
+                    domain_real, torch.zeros_like(domain_real))
+            print("domain_fake: {}, domain_real: {}".format(domain_fake.mean().item(), domain_real.mean().item()))
+
+            discrim_loss = self.domain_weight * domain_discrim_loss + policy_discrim_loss
+            self.encoder.reinforce(discrim_loss, retain_graph=True)
+            self.policy_discriminator.reinforce(
+                discrim_loss, retain_graph=True)
+            self.domain_discriminator.reinforce(discrim_loss)
 
             # gail rewards
-            fake = self.discriminator(states, actions)
-            real = self.discriminator(ex_states, ex_actions)
-            discrim_loss = self.discrim_criterion(fake, torch.ones_like(fake)) + \
-                self.discrim_criterion(real, torch.zeros_like(real))
-            self.discriminator.reinforce(discrim_loss)
+            expert_rewards = self.policy_discriminator.expert_reward(feature)
+            rewards = (1 - self.expert_rew_ratio) * _rewards + \
+                self.expert_rew_ratio * expert_rewards
 
             # compute targets for Q and V
             _actions, _log_probs = self.policy.eval(states)
@@ -123,7 +151,8 @@ class GAIL_SAC(Agent):
             self.temperature += self.lr_temperature * temperature_grad.detach()
 
             # additional debugging info
-            self.writer.add_loss('discrim_loss', discrim_loss.mean())
+            self.writer.add_loss('policy_discrim_loss', policy_discrim_loss.mean())
+            self.writer.add_loss('domain_discrim_loss', domain_discrim_loss.mean())
             self.writer.add_loss('entropy', -_log_probs.mean())
             self.writer.add_loss('v_mean', v_targets.mean())
             self.writer.add_loss('r_mean', rewards.mean())

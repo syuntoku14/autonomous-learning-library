@@ -64,20 +64,21 @@ def fc_actor_critic(env, hidden1=400, hidden2=300):
 
     return features, v, policy
 
-def fc_discriminator(env, hidden1=400, hidden2=300):
+def fc_discriminator(dim_s, hidden1=128, hidden2=32):
     return nn.Sequential(
-        nn.Linear(env.state_space.shape[0] + env.action_space.shape[0], hidden1),
+        nn.Linear(dim_s, hidden1),
         nn.ReLU(),
         nn.Linear(hidden1, hidden2),
         nn.ReLU(),
-        nn.Linear0(hidden2, 1),
+        nn.Linear(hidden2, 1),
         nn.Sigmoid())
 
 
-def fc_encoder(env, hidden1=400, hidden2=300):
+def fc_encoder(env, dim_s, hidden1=128, hidden2=64):
     return nn.Sequential(
         nn.Linear(env.state_space.shape[0] + env.action_space.shape[0], hidden1),
         nn.ReLU(),
         nn.Linear(hidden1, hidden2),
         nn.ReLU(),
-        nn.Linear0(hidden2, 34))
+        nn.Linear(hidden2, dim_s)
+        )
