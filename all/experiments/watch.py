@@ -4,6 +4,7 @@ import torch
 import gym
 from all.agents import Agent
 
+
 def watch(agent, env, fps=60):
     action = None
     returns = 0
@@ -15,14 +16,16 @@ def watch(agent, env, fps=60):
             print('returns:', returns)
             env.reset()
             returns = 0
-        else:
+        elif action is not None:
             env.step(action)
         env.render()
-        action = agent.act(env.state, env.reward)
+        action = agent.act(env.state.features, env.reward).squeeze()[:2]
         returns += env.reward
+
 
 def load_and_watch(dir, env, fps=60):
     watch(GreedyAgent.load(dir, env), env, fps=fps)
+
 
 class GreedyAgent(Agent):
     def __init__(
@@ -40,7 +43,8 @@ class GreedyAgent(Agent):
         else:
             self.policy = q
         if not self.policy:
-            raise TypeError('GreedyAgent must have either policy or q function')
+            raise TypeError(
+                'GreedyAgent must have either policy or q function')
 
     def act(self, state, _):
         with torch.no_grad():
@@ -55,12 +59,12 @@ class GreedyAgent(Agent):
     def choose_discrete(self, state):
         ret = self.policy(state)
         if isinstance(ret, torch.Tensor):
-            if len(ret.shape) == 3: # categorical dqn
+            if len(ret.shape) == 3:  # categorical dqn
                 return torch.argmax((ret * self.policy.atoms).sum(dim=2), dim=1)
             return torch.argmax(self.policy(state), dim=1)
         if isinstance(ret, torch.distributions.distribution.Distribution):
             return ret.sample()
-        return ret # unknown type, return it and pray!
+        return ret  # unknown type, return it and pray!
 
     def choose_continuous(self, state):
         ret = self.policy(state)
@@ -70,7 +74,7 @@ class GreedyAgent(Agent):
             return ret[0]
         if isinstance(ret, torch.distributions.distribution.Distribution):
             return ret.sample()
-        return ret # unknown type, return it and pray!
+        return ret  # unknown type, return it and pray!
 
     @staticmethod
     def load(dirname, env):
@@ -79,9 +83,11 @@ class GreedyAgent(Agent):
         q = None
         for filename in os.listdir(dirname):
             if filename == 'feature.pt':
-                feature = torch.load(os.path.join(dirname, filename)).to(env.device)
+                feature = torch.load(os.path.join(
+                    dirname, filename)).to(env.device)
             if filename == 'policy.pt':
-                policy = torch.load(os.path.join(dirname, filename)).to(env.device)
+                policy = torch.load(os.path.join(
+                    dirname, filename)).to(env.device)
             if filename in ('q.pt', 'q_dist.pt'):
                 q = torch.load(os.path.join(dirname, filename)).to(env.device)
 
