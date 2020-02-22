@@ -23,7 +23,7 @@ class EnvRunner(ABC):
         self._render = render
         self._quiet = quiet
         self._best_returns = -np.inf
-        self._returns100 = []
+        self._returns10 = []
         self.run()
 
     @abstractmethod
@@ -42,12 +42,12 @@ class EnvRunner(ABC):
                   (self._writer.episodes, self._writer.frames, fps, returns))
         if returns > self._best_returns:
             self._best_returns = returns
-        self._returns100.append(returns)
-        if len(self._returns100) == 10:
-            mean = np.mean(self._returns100)
-            std = np.std(self._returns100)
+        self._returns10.append(returns)
+        if len(self._returns10) == 10:
+            mean = np.mean(self._returns10)
+            std = np.std(self._returns10)
             self._writer.add_summary('returns10', mean, std, step="frame")
-            self._returns100 = []
+            self._returns10 = []
         self._writer.add_evaluation('returns/episode', returns, step="episode")
         self._writer.add_evaluation('returns/frame', returns, step="frame")
         self._writer.add_evaluation("returns/max", self._best_returns, step="frame")

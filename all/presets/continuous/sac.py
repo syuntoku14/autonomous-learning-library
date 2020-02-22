@@ -25,7 +25,7 @@ def sac(
         polyak_rate=0.005,
         # Replay Buffer settings
         replay_start_size=5000,
-        target_start_size=500,
+        target_start_size=1000,
         replay_buffer_size=1e6,
         # Exploration settings
         temperature_initial=0.1,
