@@ -1,4 +1,4 @@
-from torch.optim import Adam
+from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from all.agents import SAC
 from all.approximation import QContinuous, PolyakTarget, VNetwork
@@ -6,15 +6,17 @@ from all.bodies import TimeFeature
 from all.logging import DummyWriter
 from all.policies.soft_deterministic import SoftDeterministicPolicy
 from all.memory import ExperienceReplayBuffer, HERBuffer
+from all.optim import LinearScheduler
 from .models import fc_q, fc_v, fc_soft_policy
 
 
 def sac(
+        expert_buffer,
         # Common settings
         device="cuda",
         pretrained_model=None,
         discount_factor=0.98,
-        last_frame=2e6,
+        last_frame=1e4,
         # Adam optimizer settings
         lr_q=1e-3,
         lr_v=1e-3,
@@ -24,8 +26,8 @@ def sac(
         update_frequency=2,
         polyak_rate=0.005,
         # Replay Buffer settings
-        replay_start_size=5000,
-        target_start_size=1000,
+        replay_start_size=100,
+        target_start_size=500,
         replay_buffer_size=1e6,
         # Exploration settings
         temperature_initial=0.1,
@@ -55,7 +57,7 @@ def sac(
         final_anneal_step = (last_frame - replay_start_size) // update_frequency
 
         q_1_model = fc_q(env).to(device)
-        q_1_optimizer = Adam(q_1_model.parameters(), lr=lr_q)
+        q_1_optimizer = AdamW(q_1_model.parameters(), weight_decay=1e-4, lr=lr_q)
         q_1 = QContinuous(
             q_1_model,
             q_1_optimizer,
@@ -68,7 +70,7 @@ def sac(
         )
 
         q_2_model = fc_q(env).to(device)
-        q_2_optimizer = Adam(q_2_model.parameters(), lr=lr_q)
+        q_2_optimizer = AdamW(q_2_model.parameters(), weight_decay=1e-4, lr=lr_q)
         q_2 = QContinuous(
             q_2_model,
             q_2_optimizer,
@@ -81,7 +83,7 @@ def sac(
         )
 
         v_model = fc_v(env).to(device)
-        v_optimizer = Adam(v_model.parameters(), lr=lr_v)
+        v_optimizer = AdamW(v_model.parameters(), weight_decay=1e-4, lr=lr_v)
         v = VNetwork(
             v_model,
             v_optimizer,
@@ -95,7 +97,7 @@ def sac(
         )
 
         policy_model = fc_soft_policy(env).to(device) if pretrained_model is None else pretrained_model
-        policy_optimizer = Adam(policy_model.parameters(), lr=lr_pi)
+        policy_optimizer = AdamW(policy_model.parameters(), weight_decay=1e-4, lr=lr_pi)
         policy = SoftDeterministicPolicy(
             policy_model,
             policy_optimizer,
@@ -111,7 +113,7 @@ def sac(
             replay_buffer_size,
             device=device
         )
-        replay_buffer = HERBuffer(replay_buffer)
+        # replay_buffer = HERBuffer(replay_buffer)
 
         return SAC(
             policy,
@@ -119,6 +121,8 @@ def sac(
             q_2,
             v,
             replay_buffer,
+            expert_buffer,
+            expert_ratio=LinearScheduler(0.5, 0., 1, final_anneal_step-replay_start_size, name="expert_ratio", writer=writer),
             temperature_initial=temperature_initial,
             entropy_target=(-env.action_space.shape[0] * entropy_target_scaling),
             lr_temperature=lr_temperature,

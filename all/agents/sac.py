@@ -34,10 +34,12 @@ class SAC(Agent):
                  q_2,
                  v,
                  replay_buffer,
+                 expert_replay_buffer,
                  discount_factor=0.99,
                  entropy_target=-2.,
                  lr_temperature=1e-4,
-                 minibatch_size=32,
+                 expert_ratio=1.0,
+                 minibatch_size=100,
                  replay_start_size=5000,
                  target_start_size=500,
                  temperature_initial=0.1,
@@ -50,6 +52,7 @@ class SAC(Agent):
         self.q_1 = q_1
         self.q_2 = q_2
         self.replay_buffer = replay_buffer
+        self.expert_replay_buffer = expert_replay_buffer
         self.writer = writer
         # hyperparameters
         self.discount_factor = discount_factor
@@ -60,6 +63,7 @@ class SAC(Agent):
         self.target_start_size = target_start_size
         self.temperature = temperature_initial
         self.update_frequency = update_frequency
+        self.expert_ratio = expert_ratio
         # private
         self._state = None
         self._action = None
@@ -92,9 +96,19 @@ class SAC(Agent):
 
             # update policy
             if self._frames_seen % 2 == 0 and self._frames_seen > self.target_start_size:
+                print("Update policy")
+                (ex_states, ex_actions, ex_rewards, ex_next_states, _) = self.expert_replay_buffer.sample(self.minibatch_size)
+                mean, _ = self.policy(ex_states)
+                with torch.no_grad():
+                    q_ex = self.q_1(ex_states, ex_actions.view(-1, 2))
+                    q_policy = self.q_1(ex_states, mean.view(-1, 2))
+                    q_filter = (q_ex > q_policy).detach()
+                ex_loss = mse_loss(q_filter.view(-1, 1) * mean.view(-1, 2), q_filter.view(-1, 1) * ex_actions.view(-1, 2))
+
                 _actions2, _log_probs2 = self.policy(states)
-                loss = (-self.q_1(states, _actions2) + self.temperature * _log_probs2).mean()
+                loss = self.expert_ratio * ex_loss # (-self.q_1(states, _actions2) + self.temperature * _log_probs2).mean() + self.expert_ratio * ex_loss
                 self.policy.reinforce(loss)
+                self.writer.add_loss('expert_loss', ex_loss)
             self.q_1.zero_grad()
 
             # adjust temperature
