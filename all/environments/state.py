@@ -3,16 +3,22 @@ import torch
 
 class State:
     def __init__(self, raw, mask=None, info=None):
+        """
+        A State object has:
+        1. raw (torch.tensor): batch_size x shape
+        2. mask (torch.BoolTensor): batch_size x 1
+        3. info (list): batch_size
+        """
         self._raw = raw
 
         if mask is None:
             self._mask = torch.ones(
                 len(raw),
-                dtype=torch.uint8,
+                dtype=torch.bool,
                 device=raw.device
             )
         else:
-            self._mask = mask
+            self._mask = mask.bool()
 
         self._info = info or [None] * len(raw)
 
@@ -56,7 +62,7 @@ class State:
 
     @property
     def done(self):
-        return not self._mask
+        return ~self._mask
 
     def __getitem__(self, idx):
         if isinstance(idx, slice):
@@ -82,10 +88,10 @@ class State:
 
 DONE = torch.tensor(
     [0],
-    dtype=torch.uint8,
+    dtype=torch.bool,
 )
 
 NOT_DONE = torch.tensor(
     [1],
-    dtype=torch.uint8,
+    dtype=torch.bool,
 )

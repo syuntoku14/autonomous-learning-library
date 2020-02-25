@@ -9,7 +9,7 @@ class StateTest(unittest.TestCase):
         raw = torch.randn(3, 4)
         state = State(raw)
         tt.assert_equal(state.features, raw)
-        tt.assert_equal(state.mask, torch.ones(3))
+        tt.assert_equal(state.mask, torch.ones(3, dtype=torch.bool))
         tt.assert_equal(state.raw, raw)
         self.assertEqual(state.info, [None] * 3)
 
@@ -19,7 +19,7 @@ class StateTest(unittest.TestCase):
         info = ['a', 'b', 'c']
         state = State(raw, mask=mask, info=info)
         tt.assert_equal(state.features, raw)
-        tt.assert_equal(state.mask, torch.zeros(3))
+        tt.assert_equal(state.mask, torch.zeros(3, dtype=torch.bool))
         self.assertEqual(state.info, info)
 
     def test_not_done(self):
