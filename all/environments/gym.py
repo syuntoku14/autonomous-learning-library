@@ -30,15 +30,15 @@ class GymEnvironment(Environment):
         self._lazy_init()
         state = self._env.reset()
         self._state = self._make_state(state, 0)
-        self._reward = 0
+        self._reward = torch.FloatTensor([0])
         self._done = False
         return self._state
 
     def step(self, action):
-        state, reward, done, info = self._env.step(self._convert(action))
+        state, reward, done, info = self._env.step(self._convert_action(action))
         self._state = self._make_state(state, done, info)
         self._action = action
-        self._reward = reward
+        self._reward = self._convert_reward(reward)
         self._done = done
         return self._state, self._reward
 
@@ -96,12 +96,12 @@ class GymEnvironment(Environment):
             # it actually makes a noticable difference :p
             self._done_mask = torch.tensor(
                 [0],
-                dtype=torch.uint8,
+                dtype=torch.bool,
                 device=self._device
             )
             self._not_done_mask = torch.tensor(
                 [1],
-                dtype=torch.uint8,
+                dtype=torch.bool,
                 device=self._device
             )
             self._init = True
@@ -112,16 +112,24 @@ class GymEnvironment(Environment):
             torch.from_numpy(
                 np.array(
                     raw,
-                    dtype=self.state_space.dtype
+                    dtype=np.float32
                 )
             ).unsqueeze(0).to(self._device),
             self._done_mask if done else self._not_done_mask,
             [info]
         )
 
-    def _convert(self, action):
+    def _convert_action(self, action):
         if isinstance(self.action_space, gym.spaces.Discrete):
             return action.item()
         if isinstance(self.action_space, gym.spaces.Box):
             return action.cpu().detach().numpy().reshape(-1)
         raise TypeError("Unknown action space type")
+
+    def _convert_reward(self, reward):
+        if isinstance(reward, torch.FloatTensor):
+            return reward
+        elif isinstance(reward, float):
+            return torch.FloatTensor([reward])
+        raise TypeError("Unknown reward type")
+

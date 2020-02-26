@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import torch
-from all.environments import State
+from all.environments import State, Action
 from all.optim import Schedulable
 from .segment_tree import SumSegmentTree, MinSegmentTree
 
@@ -9,10 +9,14 @@ def check_inputs_shapes(store):
     def retfunc(self, states, actions, rewards, next_states):
         if states is None:
             return None
-        assert len(states.features.shape) > 1, "states.shape {} is not batched".format(states.features.shape)
-        assert len(actions.shape) > 1, "actions.shape {} is not batched".format(actions.shape)
+        # type check
+        assert isinstance(states, State), "Input invalid states type {}. states must be all.environments.State".format(type(states))
+        assert isinstance(actions, Action), "Input invalid actions type {}. actions must be all.environments.Action".format(type(actions))
+        assert isinstance(next_states, State), "Input invalid next_states type {}. next_states must be all.environments.State".format(type(next_states))
+        assert isinstance(rewards, torch.FloatTensor), "Input invalid rewards type {}. rewards must be torch.FloatTensor".format(type(rewards))
+
+        # shape check
         assert len(rewards.shape) == 1, "rewards.shape {} must be 'shape == (batch_size)'".format(rewards.shape)
-        assert len(next_states.features.shape) > 1, "next_states.shape {} is not batched".format(next_states.features.shape)
         return store(self, states, actions, rewards, next_states)
     return retfunc
 
@@ -69,7 +73,7 @@ class ExperienceReplayBuffer(ReplayBuffer):
 
     def _reshape(self, minibatch, weights):
         states = State.from_list([sample[0] for sample in minibatch])
-        actions = torch.cat([sample[1] for sample in minibatch])
+        actions = Action.from_list([sample[1] for sample in minibatch])
         rewards = torch.tensor([sample[2] for sample in minibatch], device=self.device).float()
         next_states = State.from_list([sample[3] for sample in minibatch])
         return (states, actions, rewards, next_states, weights)
@@ -162,8 +166,8 @@ class PrioritizedReplayBuffer(ExperienceReplayBuffer, Schedulable):
 class NStepReplayBuffer(ReplayBuffer):
     """
     Converts any ReplayBuffer into an NStepReplayBuffer
-    1. statess (list): [[state, state, ... x NStep], [], ... x num_envs]
-    2. actionss (torch.BoolTensor): [[action, action, ... x NStep], [], ... x num_envs]
+    1. statess (list of State): [[state, state, ... x NStep], [], ... x num_envs]
+    2. actionss (list of Action): [[action, action, ... x NStep], [], ... x num_envs]
     3. rewardss (list): [[reward, reward, ... x NStep], [], ... x num_envs]
     """
     def __init__(
@@ -209,7 +213,7 @@ class NStepReplayBuffer(ReplayBuffer):
                 self._rewards[env_id] = 0.
 
     def _store_next(self, env_id, next_state):
-        self.buffer.store(self._statess[env_id][0], self._actionss[env_id][0].unsqueeze(0),
+        self.buffer.store(self._statess[env_id][0], self._actionss[env_id][0],
                           self._rewards[env_id].unsqueeze(0).clone(), next_state)
         self._rewards[env_id] = self._rewards[env_id] - \
             self._rewardss[env_id][0]

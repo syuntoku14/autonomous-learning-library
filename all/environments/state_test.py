@@ -15,7 +15,7 @@ class StateTest(unittest.TestCase):
 
     def test_custom_constructor_args(self):
         raw = torch.randn(3, 4)
-        mask = torch.zeros(3)
+        mask = torch.zeros(3).bool()
         info = ['a', 'b', 'c']
         state = State(raw, mask=mask, info=info)
         tt.assert_equal(state.features, raw)

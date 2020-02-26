@@ -5,10 +5,11 @@ class State:
     def __init__(self, raw, mask=None, info=None):
         """
         Members of State object:
-        1. raw (torch.tensor): batch_size x shape
+        1. raw (torch.Tensor): batch_size x shape
         2. mask (torch.BoolTensor): batch_size x 1
         3. info (list): batch_size
         """
+        assert isinstance(raw, torch.Tensor), "Input invalid raw type {}. raw must be torch.Tensor".format(type(raw))
         assert len(raw.shape) > 1, "raw.shape {} is not batched".format(raw.shape)
         self._raw = raw
 
@@ -19,8 +20,9 @@ class State:
                 device=raw.device
             )
         else:
+            assert isinstance(mask, torch.BoolTensor), "Input invalid mask type {}. mask must be torch.BoolTensor".format(type(mask))
             assert len(mask.shape) == 1, "mask.shape {} must be 'shape == (batch_size)'".format(mask.shape)
-            self._mask = mask.bool()
+            self._mask = mask
 
         self._info = info or [None] * len(raw)
 
