@@ -35,7 +35,7 @@ class TestNN(unittest.TestCase):
         model = nn.Linear(2, 2)
         net = nn.RLNetwork(model, (2,))
         features = torch.randn((4, 2))
-        done = torch.tensor([1, 1, 0, 1], dtype=torch.uint8)
+        done = torch.tensor([1, 1, 0, 1], dtype=torch.bool)
         out = net(State(features, done))
         tt.assert_almost_equal(
             out,
@@ -50,7 +50,7 @@ class TestNN(unittest.TestCase):
         )
 
         features = torch.randn(3, 2)
-        done = torch.tensor([1, 1, 1], dtype=torch.uint8)
+        done = torch.tensor([1, 1, 1], dtype=torch.bool)
         out = net(State(features, done))
         tt.assert_almost_equal(
             out,

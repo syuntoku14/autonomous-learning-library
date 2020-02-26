@@ -64,7 +64,7 @@ class TimeFeatureTest(unittest.TestCase):
         self.agent.act(state, 0)
         tt.assert_allclose(self.test_agent.last_state.features, torch.tensor(
             [[0.3923, -0.2236, 1e-3], [-0.3195, -1.2050, 1e-3]]), atol=1e-04)
-        self.agent.act(State(state.features, torch.tensor([1., 0.])), 0)
+        self.agent.act(State(state.features, torch.tensor([1., 0.]).bool()), 0)
         tt.assert_allclose(self.test_agent.last_state.features, torch.tensor(
             [[0.3923, -0.2236, 2e-3], [-0.3195, -1.2050, 2e-3]]), atol=1e-04)
         self.agent.act(state, 0)
